@@ -1,0 +1,28 @@
+{
+  "name": "chrome-devtools-extra-mcp",
+  "version": "0.1.0",
+  "description": "Extra CDP domains for chrome-devtools-mcp: Fetch interception, Storage, Debugger, and more",
+  "type": "module",
+  "bin": {
+    "chrome-devtools-extra-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "chrome-remote-interface": "^0.33.2",
+    "zod": "^3.24.0",
+    "zod-to-json-schema": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}
