@@ -1,54 +1,118 @@
 /**
- * CDP WebSocket client — connects to Chrome's remote debugging port
- * and provides a typed interface for sending CDP commands.
+ * CDP client via Puppeteer — connects to Chrome using the same method as chrome-devtools-mcp.
+ * Supports autoConnect (DevToolsActivePort) and direct browserUrl.
  */
 
-import CDP from "chrome-remote-interface";
+import puppeteer, { type Browser, type CDPSession } from "puppeteer-core";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 
-let client: CDP.Client | null = null;
+let browser: Browser | null = null;
+let cdpSession: CDPSession | null = null;
 let connectionPort = 9222;
+let useAutoConnect = false;
+let browserUrl: string | null = null;
 
 export function setPort(port: number) {
   connectionPort = port;
 }
 
-export async function getClient(): Promise<CDP.Client> {
-  if (client) {
-    try {
-      // Health check
-      await client.Browser.getVersion();
-      return client;
-    } catch {
-      client = null;
-    }
+export function setAutoConnect(auto: boolean) {
+  useAutoConnect = auto;
+}
+
+export function setBrowserUrl(url: string) {
+  browserUrl = url;
+}
+
+/**
+ * Read DevToolsActivePort from Chrome's default user data directory.
+ */
+function readDevToolsActivePort(): { port: number; wsPath: string } | null {
+  const platform = process.platform;
+  let chromeDir: string;
+
+  if (platform === "darwin") {
+    chromeDir = join(homedir(), "Library", "Application Support", "Google", "Chrome");
+  } else if (platform === "win32") {
+    chromeDir = join(homedir(), "AppData", "Local", "Google", "Chrome", "User Data");
+  } else {
+    chromeDir = join(homedir(), ".config", "google-chrome");
   }
 
-  client = await CDP({ port: connectionPort });
-  return client;
+  try {
+    const content = readFileSync(join(chromeDir, "DevToolsActivePort"), "utf-8").trim();
+    const lines = content.split("\n");
+    if (lines.length >= 2) {
+      return { port: parseInt(lines[0], 10), wsPath: lines[1] };
+    }
+  } catch {}
+
+  return null;
+}
+
+async function connectBrowser(): Promise<Browser> {
+  if (browserUrl) {
+    return puppeteer.connect({ browserURL: browserUrl });
+  }
+
+  if (useAutoConnect) {
+    const info = readDevToolsActivePort();
+    if (info) {
+      const wsEndpoint = `ws://127.0.0.1:${info.port}${info.wsPath}`;
+      return puppeteer.connect({ browserWSEndpoint: wsEndpoint });
+    }
+    // Fallback to port-based discovery
+  }
+
+  return puppeteer.connect({ browserURL: `http://127.0.0.1:${connectionPort}` });
+}
+
+export async function getBrowser(): Promise<Browser> {
+  if (browser?.connected) return browser;
+  browser = await connectBrowser();
+  return browser;
+}
+
+/**
+ * Get a CDP session for the active page.
+ */
+export async function getCDPSession(): Promise<CDPSession> {
+  if (cdpSession) return cdpSession;
+
+  const b = await getBrowser();
+  const pages = await b.pages();
+  const page = pages[0];
+  if (!page) throw new Error("No pages open in browser");
+
+  cdpSession = await page.createCDPSession();
+  return cdpSession;
+}
+
+/**
+ * Send a raw CDP command via the session.
+ */
+export async function send(method: string, params?: Record<string, unknown>): Promise<any> {
+  const session = await getCDPSession();
+  return session.send(method as any, params as any);
+}
+
+/**
+ * Listen for CDP events on the session.
+ */
+export async function on(event: string, handler: (...args: any[]) => void) {
+  const session = await getCDPSession();
+  session.on(event as any, handler);
 }
 
 export async function disconnect() {
-  if (client) {
-    try {
-      await client.close();
-    } catch {}
-    client = null;
+  if (cdpSession) {
+    try { await cdpSession.detach(); } catch {}
+    cdpSession = null;
   }
-}
-
-/**
- * Send a raw CDP command. Used by domain modules.
- */
-export async function send(method: string, params?: Record<string, unknown>): Promise<any> {
-  const c = await getClient();
-  return (c as any).send(method, params);
-}
-
-/**
- * Listen for CDP events.
- */
-export function on(event: string, handler: (...args: any[]) => void) {
-  getClient().then((c) => {
-    (c as any).on(event, handler);
-  });
+  if (browser) {
+    try { browser.disconnect(); } catch {}
+    browser = null;
+  }
 }

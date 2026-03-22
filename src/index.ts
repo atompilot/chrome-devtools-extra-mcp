@@ -11,23 +11,31 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { setPort, disconnect } from "./cdp-client.js";
+import { setPort, setAutoConnect, setBrowserUrl, disconnect } from "./cdp-client.js";
 import { fetchSchema, handleFetch } from "./domains/fetch.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 // ── Parse args ───────────────────────────────
 
-const args = process.argv.slice(2);
+const cliArgs = process.argv.slice(2);
 let port = 9222;
-for (let i = 0; i < args.length; i++) {
-  if (args[i] === "--port" && args[i + 1]) {
-    port = parseInt(args[i + 1], 10);
-  }
-  if (args[i]?.startsWith("--port=")) {
-    port = parseInt(args[i].split("=")[1], 10);
+let autoConnect = false;
+for (let i = 0; i < cliArgs.length; i++) {
+  const arg = cliArgs[i];
+  if (arg === "--port" && cliArgs[i + 1]) {
+    port = parseInt(cliArgs[i + 1], 10);
+  } else if (arg?.startsWith("--port=")) {
+    port = parseInt(arg.split("=")[1], 10);
+  } else if (arg === "--autoConnect") {
+    autoConnect = true;
+  } else if (arg === "--browserUrl" && cliArgs[i + 1]) {
+    setBrowserUrl(cliArgs[i + 1]);
+  } else if (arg?.startsWith("--browserUrl=")) {
+    setBrowserUrl(arg.split("=")[1]);
   }
 }
 setPort(port);
+setAutoConnect(autoConnect);
 
 // ── Tool registry ────────────────────────────
 

@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { send, getClient } from "../cdp-client.js";
+import { send, on, getCDPSession } from "../cdp-client.js";
 
 // ── State ────────────────────────────────────
 
@@ -49,10 +49,9 @@ function matchesAnyRule(url: string, resourceType: string): InterceptRule | null
 
 async function attachListener() {
   if (listenerAttached) return;
-  const client = await getClient();
 
-  (client as any).on("Fetch.requestPaused", async (event: any) => {
-    const { requestId, request, responseStatusCode, responseHeaders, resourceType } = event;
+  await on("Fetch.requestPaused", async (event: any) => {
+    const { requestId, request, responseStatusCode, resourceType } = event;
     const url: string = request.url;
     const method: string = request.method;
 
