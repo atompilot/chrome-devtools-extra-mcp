@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { send, getBrowser } from "../cdp-client.js";
+import { send, getBrowser, resetSession } from "../cdp-client.js";
 
 // ── Schema ───────────────────────────────────
 
@@ -47,6 +47,8 @@ export async function handleStorage(args: z.infer<typeof storageSchema>): Promis
   switch (args.action) {
     // ── getCookies ──
     case "getCookies": {
+      // Ensure session is on a real page (not chrome://)
+      await resetSession();
       const params: any = {};
       if (args.url) {
         params.urls = [args.url];
