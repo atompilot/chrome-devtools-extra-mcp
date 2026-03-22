@@ -76,18 +76,35 @@ export async function getBrowser(): Promise<Browser> {
 }
 
 /**
- * Get a CDP session for the active page.
+ * Get a CDP session for a real content page (not chrome:// or devtools://).
+ * Refreshes if previous page was closed.
  */
 export async function getCDPSession(): Promise<CDPSession> {
   if (cdpSession) return cdpSession;
 
   const b = await getBrowser();
   const pages = await b.pages();
-  const page = pages[0];
+
+  // Prefer a non-chrome:// page
+  const page = pages.find(p => {
+    const url = p.url();
+    return !url.startsWith("chrome://") && !url.startsWith("devtools://") && !url.startsWith("chrome-extension://");
+  }) ?? pages[0];
+
   if (!page) throw new Error("No pages open in browser");
 
   cdpSession = await page.createCDPSession();
   return cdpSession;
+}
+
+/**
+ * Reset CDP session so next call picks a fresh page.
+ */
+export async function resetSession() {
+  if (cdpSession) {
+    try { await cdpSession.detach(); } catch {}
+    cdpSession = null;
+  }
 }
 
 /**

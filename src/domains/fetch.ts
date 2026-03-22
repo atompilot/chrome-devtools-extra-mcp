@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { send, on, getCDPSession } from "../cdp-client.js";
+import { send, on, resetSession } from "../cdp-client.js";
 
 // ── State ────────────────────────────────────
 
@@ -132,6 +132,9 @@ export const fetchSchema = z.object({
 export async function handleFetch(args: z.infer<typeof fetchSchema>): Promise<string> {
   switch (args.action) {
     case "enable": {
+      // Reset session to bind to current active page
+      await resetSession();
+      listenerAttached = false;
       await attachListener();
       const patterns = [
         {
@@ -164,6 +167,8 @@ export async function handleFetch(args: z.infer<typeof fetchSchema>): Promise<st
 
       // Auto-enable if not already
       if (!enabled) {
+        await resetSession();
+        listenerAttached = false;
         await attachListener();
         await send("Fetch.enable", {
           patterns: [{ urlPattern: "*", requestStage: "Response" }],
