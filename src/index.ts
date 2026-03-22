@@ -13,6 +13,8 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { setPort, setAutoConnect, setBrowserUrl, disconnect } from "./cdp-client.js";
 import { fetchSchema, handleFetch } from "./domains/fetch.js";
+import { storageSchema, handleStorage } from "./domains/storage.js";
+import { targetSchema, handleTarget } from "./domains/target.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 // ── Parse args ───────────────────────────────
@@ -51,10 +53,27 @@ const tools = {
     }),
     handler: handleFetch,
   },
-  // Future domains will be added here:
-  // storage: { ... }
-  // debugger: { ... }
-  // css: { ... }
+  storage: {
+    description:
+      "Manage browser cookies and localStorage/sessionStorage via CDP. " +
+      "Actions: getCookies (list/filter), setCookie, deleteCookie, clearCookies, " +
+      "getStorageItems (localStorage/sessionStorage), setStorageItem, removeStorageItem, clearStorage.",
+    inputSchema: zodToJsonSchema(storageSchema, {
+      $refStrategy: "none",
+      target: "jsonSchema7",
+    }),
+    handler: handleStorage,
+  },
+  target: {
+    description:
+      "Manage browser targets (tabs, service workers, iframes) via CDP. " +
+      "Actions: list (show all targets), select (switch context), close.",
+    inputSchema: zodToJsonSchema(targetSchema, {
+      $refStrategy: "none",
+      target: "jsonSchema7",
+    }),
+    handler: handleTarget,
+  },
 };
 
 // ── MCP Server ───────────────────────────────
